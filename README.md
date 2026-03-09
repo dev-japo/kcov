@@ -10,6 +10,8 @@ Kcov is a FreeBSD/Linux/Mac OS code coverage tester for compiled languages, Pyth
 and Bash.  Kcov was originally a fork of [Bcov](https://bcov.sourceforge.net/), but has
 since evolved to support a large feature set in addition to that of Bcov.
 
+Kcov supports the following architectures: x86, x86_64, ARM, AArch64, PowerPC, RISC-V, LoongArch, SPARC64, and s390/s390x.
+
 Kcov, like Bcov, uses DWARF debugging information for compiled programs to
 make it possible to collect coverage information without special compiler
 switches.
