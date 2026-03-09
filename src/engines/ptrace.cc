@@ -64,6 +64,13 @@ static unsigned long arch_setupBreakpoint(unsigned long addr, unsigned long old_
 	unsigned long shift = 8 * offs;
 
 	val = (old_data & ~(0xffffffffUL << shift)) | (0x91d02001UL << shift); /* ta 0x01 */
+#elif defined(__s390__) || defined(__s390x__)
+	unsigned long aligned_addr = getAligned(addr);
+	unsigned long offs = addr - aligned_addr;
+	unsigned long shift = 8 * offs;
+
+	// s390 breakpoint is 0x0001 (2 bytes)
+	val = (old_data & ~(0xffffUL << shift)) | (0x0001UL << shift);
 #else
 # error Unsupported architecture
 #endif
@@ -81,6 +88,13 @@ static unsigned long arch_clearBreakpoint(unsigned long addr, unsigned long old_
 	unsigned long old_byte = (old_data >> shift) & 0xffUL;
 
 	val = (cur_data & ~(0xffUL << shift)) | (old_byte << shift);
+#elif defined(__s390__) || defined(__s390x__)
+	unsigned long aligned_addr = getAligned(addr);
+	unsigned long offs = addr - aligned_addr;
+	unsigned long shift = 8 * offs;
+	unsigned long old_halfword = (old_data >> shift) & 0xffffUL;
+
+	val = (cur_data & ~(0xffffUL << shift)) | (old_halfword << shift);
 #else
 	val = old_data;
 #endif
