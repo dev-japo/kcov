@@ -20,7 +20,7 @@
 enum
 {
 	i386_EIP = 12, x86_64_RIP = 16, ppc_NIP = 32, arm_PC = 15, aarch64_PC = 32, // See Linux arch/arm64/include/asm/ptrace.h
-	riscv_EPC = 0, loongarch_ERA = 33, sparc64_TPC = 2
+	riscv_EPC = 0, loongarch_ERA = 33, sparc64_TPC = 2, s390_PSWA = 1 // PSW Address is at offset 8 bytes / sizeof(unsigned long)
 };
 
 static void arch_adjustPcAfterBreakpoint(unsigned long *regs);
@@ -43,6 +43,9 @@ static void arch_adjustPcAfterBreakpoint(unsigned long *regs)
 	regs[x86_64_RIP]--;
 #elif defined(__powerpc__) || defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch__) || (defined(__sparc__) && defined(__arch64__))
 	// Do nothing
+#elif defined(__s390__) || defined(__s390x__)
+	// On s390, PSW already points to the breakpoint instruction
+	// No adjustment needed
 #else
 # error Unsupported architecture
 #endif
@@ -68,6 +71,9 @@ static unsigned long arch_getPcFromRegs(unsigned long *regs)
 	out = regs[loongarch_ERA];
 #elif defined(__sparc__) && defined(__arch64__)
 	out = regs[sparc64_TPC];
+#elif defined(__s390__) || defined(__s390x__)
+	// On s390, after a breakpoint, PSW points to the breakpoint instruction
+	out = regs[s390_PSWA];
 #else
 # error Unsupported architecture
 #endif
