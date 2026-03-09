@@ -419,6 +419,31 @@ void ptrace_sys::skipInstruction(pid_t pid)
 	regs[sparc64_TPC] += 4;
 # endif
 	setRegs(pid, NULL, regs, sizeof regs);
+#elif defined(__s390__) || defined(__s390x__)
+	unsigned long regs[1024];
+
+	getRegs(pid, NULL, regs, sizeof regs);
+
+	// s390 has variable-length instructions: 2, 4, or 6 bytes
+	// Length is encoded in the first 2 bits of the instruction
+	unsigned long pc = regs[s390_PSWA];
+	unsigned long insn = ptrace_sys::peekWord(pid, pc & ~(sizeof(unsigned long) - 1));
+
+	// Extract first byte of instruction at PC
+	int shift = 8 * (pc & (sizeof(unsigned long) - 1));
+	unsigned char first_byte = (insn >> shift) & 0xff;
+
+	// Determine instruction length from first 2 bits
+	int insn_len;
+	if ((first_byte & 0xc0) == 0x00)
+		insn_len = 2;  // 00xxxxxx -> 2 bytes
+	else if ((first_byte & 0xc0) == 0x40 || (first_byte & 0xc0) == 0x80)
+		insn_len = 4;  // 01xxxxxx or 10xxxxxx -> 4 bytes
+	else
+		insn_len = 6;  // 11xxxxxx -> 6 bytes
+
+	regs[s390_PSWA] += insn_len;
+	setRegs(pid, NULL, regs, sizeof regs);
 #endif
 }
 
