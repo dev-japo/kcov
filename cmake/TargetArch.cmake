@@ -42,6 +42,10 @@ set(archdetect_c_code "
     #else
         #error cmake_ARCH ppc
     #endif
+#elif defined(__s390x__)
+    #error cmake_ARCH s390x
+#elif defined(__s390__)
+    #error cmake_ARCH s390
 #endif
 
 #error cmake_ARCH unknown
