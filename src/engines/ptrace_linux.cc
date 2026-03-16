@@ -3,7 +3,7 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 
-#if defined(__aarch64__) || defined(__loongarch__)
+#if defined(__aarch64__) || defined(__loongarch__) || defined(__s390__) || defined(__s390x__)
 #  include <sys/uio.h>
 #  include <elf.h>
 #endif
@@ -44,8 +44,9 @@ static void arch_adjustPcAfterBreakpoint(unsigned long *regs)
 #elif defined(__powerpc__) || defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch__) || (defined(__sparc__) && defined(__arch64__))
 	// Do nothing
 #elif defined(__s390__) || defined(__s390x__)
-	// On s390, PSW already points to the breakpoint instruction
-	// No adjustment needed
+	// On s390, PSW points after the 2-byte breakpoint
+	// Step back 2 bytes to the breakpoint address for single-stepping
+	regs[s390_PSWA] -= 2;
 #else
 # error Unsupported architecture
 #endif
@@ -72,7 +73,8 @@ static unsigned long arch_getPcFromRegs(unsigned long *regs)
 #elif defined(__sparc__) && defined(__arch64__)
 	out = regs[sparc64_TPC];
 #elif defined(__s390__) || defined(__s390x__)
-	// On s390, after a breakpoint, PSW points to the breakpoint instruction
+	// On s390, return PSW as-is
+	// For breakpoints, PSW points after the 2-byte breakpoint, but we handle that in the caller
 	out = regs[s390_PSWA];
 #else
 # error Unsupported architecture
@@ -331,7 +333,7 @@ static unsigned long getPcFromRegs(unsigned long *regs)
 
 static long getRegs(pid_t pid, void *addr, void *regs, size_t len)
 {
-#if defined(__aarch64__) || defined(__loongarch__)
+#if defined(__aarch64__) || defined(__loongarch__) || defined(__s390__) || defined(__s390x__)
 	struct iovec iov =
 	{	regs, len};
 	return ptrace(PTRACE_GETREGSET, pid, (void *)NT_PRSTATUS, &iov);
@@ -379,7 +381,7 @@ void ptrace_sys::pokeWord(pid_t pid, unsigned long aligned_addr, unsigned long v
 
 static long setRegs(pid_t pid, void *addr, void *regs, size_t len)
 {
-#if defined(__aarch64__) || defined(__loongarch__)
+#if defined(__aarch64__) || defined(__loongarch__) || defined(__s390__) || defined(__s390x__)
 	struct iovec iov =
 	{	regs, len};
 	return ptrace(PTRACE_SETREGSET, pid, (void *)NT_PRSTATUS, &iov);
@@ -426,6 +428,8 @@ void ptrace_sys::skipInstruction(pid_t pid)
 
 	// s390 has variable-length instructions: 2, 4, or 6 bytes
 	// Length is encoded in the first 2 bits of the instruction
+	// PSW points after the breakpoint, so we need to read the instruction there
+	// Then skip forward by its length
 	unsigned long pc = regs[s390_PSWA];
 	unsigned long insn = ptrace_sys::peekWord(pid, pc & ~(sizeof(unsigned long) - 1));
 

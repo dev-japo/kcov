@@ -101,6 +101,8 @@ static void force_breakpoint(void)
 			"break 0x4\n"
 #elif defined(__sparc__) && defined(__arch64__)
 			"ta 0x01\n"
+#elif defined(__s390__) || defined(__s390x__)
+			".word 0x0001\n"  /* s390 breakpoint instruction */
 #else
 # error Unsupported architecture
 #endif
