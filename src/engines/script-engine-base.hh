@@ -49,6 +49,13 @@ public:
 		return true;
 	}
 
+	// From IEngine
+	virtual void setupBreakpoints()
+	{
+		// Script engines don't use breakpoints
+	}
+
+
 	virtual bool setMainFileRelocation(unsigned long relocation)
 	{
 		return true;

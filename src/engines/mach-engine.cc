@@ -153,6 +153,12 @@ public:
 
     // Callback from the mig stuff (from https://www.spaceflint.com/?p=150)
     kern_return_t CatchMachExceptionRaise(mach_port_t exception_port,
+
+    void setupBreakpoints()
+    {
+        setupAllBreakpoints();
+    }
+
                                           mach_port_t thread_port,
                                           mach_port_t task_port,
                                           exception_type_t exception_type,

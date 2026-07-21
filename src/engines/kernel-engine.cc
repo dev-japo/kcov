@@ -53,6 +53,11 @@ public:
 	{
 	}
 
+	void setupBreakpoints()
+	{
+		setupAllBreakpoints();
+	}
+
 	bool clearBreakpoint(const Event &ev)
 	{
 		return true;

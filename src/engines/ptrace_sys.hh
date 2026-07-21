@@ -19,6 +19,7 @@ unsigned long peekWord(pid_t pid, unsigned long aligned_addr);
 void pokeWord(pid_t pid, unsigned long aligned_addr, unsigned long value);
 void singleStep(pid_t pid);
 void skipInstruction(pid_t pid);
+void skipBreakpointInstruction(pid_t pid);
 void tie_process_to_cpu(pid_t pid, int cpu);
 int trace_me(void);
 int wait_all(int *status);

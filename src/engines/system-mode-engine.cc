@@ -50,6 +50,11 @@ public:
 		return m_breakpointIdx - 1;
 	}
 
+	void setupBreakpoints()
+	{
+		// System mode engine doesn't use traditional breakpoints
+	}
+
 	bool start(IEventListener &listener, const std::string &executable)
 	{
 		m_filename = executable;

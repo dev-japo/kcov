@@ -189,24 +189,26 @@ public:
 		int status;
 		pid_t who;
 
-		// Assume error
-		out.type = ev_error;
-		out.data = -1;
-
-		who = ptrace_sys::wait_all(&status);
-
-		if (who == -1)
+		while (true)  // Loop to handle unknown breakpoints internally
 		{
-			kcov_debug(ENGINE_MSG, "Returning error\n");
-			return out;
-		}
+			// Assume error
+			out.type = ev_error;
+			out.data = -1;
 
-		m_children[who] = 1;
+			who = ptrace_sys::wait_all(&status);
 
-		m_activeChild = who;
-		out.addr = ptrace_sys::getPc(m_activeChild);
+			if (who == -1)
+			{
+				kcov_debug(ENGINE_MSG, "Returning error\n");
+				return out;
+			}
 
-		kcov_debug(ENGINE_MSG, "PT stopped PID %d 0x%08x\n", m_activeChild, status);
+			m_children[who] = 1;
+
+			m_activeChild = who;
+			out.addr = ptrace_sys::getPc(m_activeChild);
+
+			kcov_debug(ENGINE_MSG, "PT stopped PID %d 0x%08x\n", m_activeChild, status);
 
 		// A signal?
 		if (WIFSTOPPED(status))
@@ -236,29 +238,37 @@ public:
 			}
 			else if (sig == SIGTRAP || sig == SIGSTOP || sig == sigill)
 			{
-				// A trap?
-				out.type = ev_breakpoint;
-				out.data = -1;
-
-				kcov_debug(ENGINE_MSG, "PT BP at 0x%llx:%d for %d\n", (unsigned long long) out.addr, out.data,
+				kcov_debug(ENGINE_MSG, "PT BP at 0x%llx for %d\n", (unsigned long long) out.addr,
 						m_activeChild);
 
 				bool insnFound = m_instructionMap.find(out.addr) != m_instructionMap.end();
 
-				// Single-step if we have this BP
+				// Only handle as breakpoint if we registered it
 				if (insnFound)
-					ptrace_sys::singleStep(m_activeChild);
-				else if (sig != SIGSTOP)
-					ptrace_sys::skipInstruction(m_activeChild);
-
-				// Wait for solib data if this is the first time
-				if (m_firstBreakpoint && insnFound)
 				{
-					blockUntilSolibDataRead();
-					m_firstBreakpoint = false;
-				}
+					out.type = ev_breakpoint;
+					out.data = -1;
 
-				return out;
+					// Single-step over our breakpoint
+					ptrace_sys::singleStep(m_activeChild);
+
+					// Wait for solib data if this is the first time
+					if (m_firstBreakpoint)
+					{
+						blockUntilSolibDataRead();
+						m_firstBreakpoint = false;
+					}
+
+					return out;
+				}
+				else if (sig != SIGSTOP)
+				{
+					// Unknown breakpoint (e.g., in VDSO/dynamic linker)
+					// Continue with suppressed signal and wait for next event
+					kcov_debug(BP_MSG, "Unknown breakpoint at 0x%lx, continuing\n", out.addr);
+					ptrace_sys::cont(m_activeChild, 0);
+					continue;  // Loop back to wait for next event
+				}
 			}
 
 			kcov_debug(ENGINE_MSG, "PT signal %d at 0x%llx for %d\n", WSTOPSIG(status), (unsigned long long) out.addr,
@@ -300,6 +310,7 @@ public:
 		}
 
 		return out;
+		}  // End of while(true) loop
 	}
 
 	bool childrenLeft()
@@ -361,6 +372,12 @@ private:
 		}
 
 		m_pendingBreakpoints.clear();
+	}
+
+	void setupBreakpoints()
+	{
+		// Empty implementation - breakpoints are set up in continueExecution()
+		// This is needed for PIE binaries where relocation is only known after start()
 	}
 
 	bool forkChild(const char *executable)

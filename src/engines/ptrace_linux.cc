@@ -41,12 +41,12 @@ static void arch_adjustPcAfterBreakpoint(unsigned long *regs)
 	regs[i386_EIP]--;
 #elif defined(__x86_64__)
 	regs[x86_64_RIP]--;
-#elif defined(__powerpc__) || defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch__) || (defined(__sparc__) && defined(__arch64__))
-	// Do nothing
 #elif defined(__s390__) || defined(__s390x__)
-	// On s390, PSW points after the 2-byte breakpoint
-	// Step back 2 bytes to the breakpoint address for single-stepping
+	// On s390x, PSW points 2 bytes after the breakpoint
+	// Step back 2 bytes to re-execute the original instruction
 	regs[s390_PSWA] -= 2;
+#elif defined(__powerpc__) || defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch__) || (defined(__sparc__) && defined(__arch64__))
+	// Do nothing on these architectures
 #else
 # error Unsupported architecture
 #endif
@@ -73,9 +73,9 @@ static unsigned long arch_getPcFromRegs(unsigned long *regs)
 #elif defined(__sparc__) && defined(__arch64__)
 	out = regs[sparc64_TPC];
 #elif defined(__s390__) || defined(__s390x__)
-	// On s390, return PSW as-is
-	// For breakpoints, PSW points after the 2-byte breakpoint, but we handle that in the caller
-	out = regs[s390_PSWA];
+	// On s390, PSW points after the 2-byte breakpoint
+	// Subtract 2 to get actual breakpoint address for lookup
+	out = regs[s390_PSWA] - 2;
 #else
 # error Unsupported architecture
 #endif
@@ -400,6 +400,16 @@ void ptrace_sys::singleStep(pid_t pid)
 	setRegs(pid, NULL, regs, sizeof regs);
 }
 
+// Skip over just the breakpoint instruction (for unknown breakpoints)
+void ptrace_sys::skipBreakpointInstruction(pid_t pid)
+{
+	// On s390x, PSW already points 2 bytes past the breakpoint when we hit it
+	// So for unknown breakpoints, we don't need to adjust PC at all
+	// On other architectures, breakpoint handling varies, but for unknown
+	// breakpoints we also don't adjust (they're not ours to manage)
+	(void)pid;
+}
+
 // Skip over this instruction
 void ptrace_sys::skipInstruction(pid_t pid)
 {
@@ -428,9 +438,8 @@ void ptrace_sys::skipInstruction(pid_t pid)
 
 	// s390 has variable-length instructions: 2, 4, or 6 bytes
 	// Length is encoded in the first 2 bits of the instruction
-	// PSW points after the breakpoint, so we need to read the instruction there
-	// Then skip forward by its length
-	unsigned long pc = regs[s390_PSWA];
+	// PSW points after the breakpoint (at PC+2), so subtract 2 to get actual instruction address
+	unsigned long pc = regs[s390_PSWA] - 2;
 	unsigned long insn = ptrace_sys::peekWord(pid, pc & ~(sizeof(unsigned long) - 1));
 
 	// Extract first byte of instruction at PC
@@ -446,7 +455,8 @@ void ptrace_sys::skipInstruction(pid_t pid)
 	else
 		insn_len = 6;  // 11xxxxxx -> 6 bytes
 
-	regs[s390_PSWA] += insn_len;
+	// Set PSW to point after the original instruction (PC + insn_len)
+	regs[s390_PSWA] = pc + insn_len;
 	setRegs(pid, NULL, regs, sizeof regs);
 #endif
 }

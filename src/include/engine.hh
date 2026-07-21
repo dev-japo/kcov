@@ -75,6 +75,13 @@ namespace kcov
 		 */
 		virtual void kill(int sig) = 0;
 
+
+	/**
+	 * Setup all pending breakpoints in the target process.
+	 * This should be called after parse() but before the first continueExecution().
+	 */
+	virtual void setupBreakpoints() = 0;
+
 		/**
 		 * Continue execution with an event
 		 *

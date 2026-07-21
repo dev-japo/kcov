@@ -232,6 +232,47 @@ cmake/                # CMake modules
 - Cleanup handled in `do_cleanup()` function
 - Signal handlers forward signals to traced processes
 
+## MemPalace Integration
+
+**Critical Rule**: MemPalace MCP must be used extensively for all kcov development work, especially for s390 porting efforts.
+
+### MemPalace Usage Guidelines
+
+1. **Before Starting Any Task**:
+   - Query MemPalace for existing knowledge about the task domain
+   - Search for previous decisions, technical discussions, and implementation notes
+   - Review stored architecture decisions and design patterns
+
+2. **During Development**:
+   - Store all significant technical decisions in MemPalace
+   - Document architecture choices with rationale
+   - Record implementation challenges and solutions
+   - Save platform-specific quirks and workarounds
+
+3. **Knowledge Organization**:
+   - **Wing**: `kcov` (project name)
+   - **Rooms**: Component-based organization
+     - `architecture` - High-level design decisions
+     - `s390-port` - s390/s390x specific implementation details
+     - `ptrace` - ptrace engine specifics
+     - `dwarf` - DWARF parsing and debugging info
+     - `breakpoints` - Breakpoint handling across architectures
+     - `testing` - Test strategies and results
+     - `build-system` - CMake and build configuration
+     - `decisions` - Technical decision records
+
+4. **s390 Port Specific**:
+   - All s390-related findings must be stored in MemPalace
+   - Document architecture differences from x86/ARM
+   - Record ptrace syscall differences
+   - Save breakpoint instruction specifics
+   - Document register layouts and calling conventions
+
+5. **Query Before Implementation**:
+   - Always check MemPalace before implementing new features
+   - Verify no duplicate work or conflicting approaches exist
+   - Review lessons learned from similar implementations
+
 ## Important Files
 
 - `src/main.cc` - Entry point and mode selection
